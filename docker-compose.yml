@@ -56,7 +56,7 @@ services:
     restart: always
     env_file:
       - .env
-    command: celery -A wizardrun worker --loglevel=info
+    command: celery -A wizard_run worker --loglevel=info
     volumes:
       - .:/app
       - wizardbot_media:/app/media
