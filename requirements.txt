@@ -18,6 +18,7 @@ packaging==26.2
 prompt_toolkit==3.0.52
 PySocks==1.7.1
 python-dateutil==2.9.0.post0
+python-dotenv==1.2.2
 redis==7.4.0
 selenium==4.43.0
 six==1.17.0
