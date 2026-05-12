@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'account',
+    'accounts',
     'django_celery_results',
 ]
 
@@ -124,7 +124,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # Custom User Model
-AUTH_USER_MODEL = 'account.CustomUser'
+AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # Auth redirects
 LOGIN_URL = '/'

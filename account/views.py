@@ -17,7 +17,7 @@ def signin_view(request):
         login(request, user)
         return redirect('dashboard')
 
-    return render(request, 'account/signin.html', {'form': form})
+    return render(request, 'accounts/signin.html', {'form': form})
 
 
 @login_required
@@ -28,7 +28,7 @@ def dashboard_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    return render(request, 'account/dashboard.html', {
+    return render(request, 'accounts/dashboard.html', {
         'user': request.user,
         'cred_form': cred_form,
         'page_obj': page_obj,
@@ -43,7 +43,7 @@ def run_login_view(request):
         sessions_qs = LoginSession.objects.filter(created_by=request.user)
         paginator = Paginator(sessions_qs, 10)
         page_obj = paginator.get_page(request.GET.get('page'))
-        return render(request, 'account/dashboard.html', {
+        return render(request, 'accounts/dashboard.html', {
             'user': request.user,
             'cred_form': form,
             'page_obj': page_obj,
