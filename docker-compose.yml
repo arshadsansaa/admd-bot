@@ -1,0 +1,78 @@
+services:
+
+  db:
+    image: postgres:14
+    restart: always
+    environment:
+      POSTGRES_DB: wizardbot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password   
+    env_file:
+      - .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - shared-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${DB_USER}"]
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - shared-net
+
+  web:
+    build: .
+    # image: 174249281329.dkr.ecr.ap-south-1.amazonaws.com/admd-memberid:latest
+    # pull_policy: always
+    restart: always
+    env_file:
+      - .env
+    command: >
+      bash -c 'python manage.py makemigrations accounts &&
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000'
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - wizardbot_media:/app/media
+      - wizardbot_static:/app/static
+    depends_on:
+      - db
+      - redis
+    networks:
+    - shared-net
+
+  celery-worker:
+    build: .
+    # image: 174249281329.dkr.ecr.ap-south-1.amazonaws.com/admd-memberid:latest
+    # pull_policy: always
+    restart: always
+    env_file:
+      - .env
+    command: celery -A wizardrun worker --loglevel=info
+    volumes:
+      - .:/app
+      - wizardbot_media:/app/media
+    depends_on:
+      - db
+      - web
+    networks:
+      - shared-net
+
+volumes:
+  redis_data:
+  wizardbot_media:
+  wizardbot_static:
+  pgdata:
+
+
+networks:
+  shared-net:
+    driver: bridge
