@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload #{{ bulk.pk }} | Wizard Run</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; }
+        .navbar {
+            background: rgba(255,255,255,0.04);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 16px 32px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .navbar .brand { color: #e94560; font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+        .navbar .nav-right { display: flex; align-items: center; gap: 16px; }
+        .navbar .user-email { color: rgba(255,255,255,0.6); font-size: 14px; }
+        .btn-logout {
+            padding: 8px 18px; background: transparent; border: 1px solid #e94560;
+            color: #e94560; border-radius: 6px; font-size: 14px; cursor: pointer;
+            text-decoration: none; transition: background 0.2s, color 0.2s;
+        }
+        .btn-logout:hover { background: #e94560; color: #fff; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 36px 32px; }
+
+        /* Breadcrumb */
+        .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 28px; font-size: 14px; }
+        .breadcrumb a { color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.15s; }
+        .breadcrumb a:hover { color: #e94560; }
+        .breadcrumb .sep { color: rgba(255,255,255,0.2); }
+        .breadcrumb .current { color: rgba(255,255,255,0.85); }
+
+        /* Messages */
+        .msg-box {
+            border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
+            font-size: 13px; display: flex; align-items: center; gap: 8px;
+        }
+        .msg-success { background: rgba(25,135,84,0.15); border: 1px solid rgba(40,199,122,0.3); color: #28c77a; }
+        .msg-error   { background: rgba(233,69,96,0.1);  border: 1px solid rgba(233,69,96,0.3);  color: #e94560; }
+        .msg-warning  { background: rgba(255,193,7,0.12); border: 1px solid rgba(255,193,7,0.3);  color: #ffc107; }
+
+        /* Info card */
+        .info-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 14px; padding: 28px 32px; margin-bottom: 32px;
+        }
+        .info-card h2 { font-size: 18px; color: #e94560; margin-bottom: 20px; letter-spacing: 0.5px; }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 20px; }
+        .info-item { display: flex; flex-direction: column; gap: 4px; }
+        .info-label { color: rgba(255,255,255,0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; }
+        .info-value { font-size: 20px; font-weight: 700; }
+        .info-value.c-green { color: #28c77a; }
+        .info-value.c-red { color: #e94560; }
+        .info-value.c-yellow { color: #ffc107; }
+        .info-value.c-blue { color: #0dcaf0; }
+        .info-value.c-default { color: rgba(255,255,255,0.85); }
+        .info-sub { color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 2px; }
+
+        /* Table */
+        .section-title { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.8); margin-bottom: 18px; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        thead tr { border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { padding: 12px 16px; color: rgba(255,255,255,0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; text-align: left; }
+        td { padding: 13px 16px; color: rgba(255,255,255,0.85); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-PENDING  { background: rgba(255,193,7,0.15);  color: #ffc107; }
+        .badge-RUNNING  { background: rgba(13,202,240,0.15); color: #0dcaf0; }
+        .badge-SUCCESS  { background: rgba(25,135,84,0.2);   color: #28c77a; }
+        .badge-FAILED   { background: rgba(233,69,96,0.15);  color: #e94560; }
+        .empty-state { text-align: center; padding: 48px 0; color: rgba(255,255,255,0.25); font-size: 15px; }
+        .pagination { display: flex; gap: 6px; justify-content: center; margin-top: 28px; flex-wrap: wrap; }
+        .page-btn {
+            padding: 7px 13px; border-radius: 6px; font-size: 13px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7); text-decoration: none; transition: background 0.15s;
+        }
+        .page-btn:hover { background: rgba(255,255,255,0.12); }
+        .page-btn.active { background: #e94560; border-color: #e94560; color: #fff; font-weight: 600; }
+        .page-btn.disabled { opacity: 0.35; pointer-events: none; }
+        @media (max-width: 700px) { .info-grid { grid-template-columns: repeat(2, 1fr); } .container { padding: 24px 16px; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <span class="brand">Wizard Run</span>
+        <div class="nav-right">
+            <span class="user-email">{{ user.email }}</span>
+            <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <div class="breadcrumb">
+            <a href="{% url 'dashboard' %}">Dashboard</a>
+            <span class="sep">/</span>
+            <a href="{% url 'bulk_upload_list' %}">Bulk Uploads</a>
+            <span class="sep">/</span>
+            <span class="current">{{ bulk.file_name }}</span>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="msg-box msg-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="info-card">
+            <h2 style="display:flex;align-items:center;gap:14px;">{{ bulk.file_name }}
+                {% if bulk.csv_file %}<a href="{% url 'download_upload' pk=bulk.pk %}" style="font-size:13px;color:#1a73e8;text-decoration:none;border:1px solid rgba(26,115,232,0.3);padding:5px 14px;border-radius:6px;font-weight:500;">&#8595; Download CSV</a>{% endif %}
+            </h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Total Rows</span>
+                    <span class="info-value c-default">{{ bulk.total_rows }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Success</span>
+                    <span class="info-value c-green">{{ bulk.success_count }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Failed</span>
+                    <span class="info-value c-red">{{ bulk.failed_count }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Running</span>
+                    <span class="info-value c-blue">{{ bulk.running_count }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Skipped</span>
+                    <span class="info-value c-yellow">{{ bulk.skipped_count }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Uploaded At</span>
+                    <span class="info-sub" style="font-size:14px;color:rgba(255,255,255,0.7);margin-top:6px;">{{ bulk.created_at|date:"M d, Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">Sessions from this Upload</div>
+
+        {% if page_obj.object_list %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Office Key</th>
+                        <th>Status</th>
+                        <th>Error</th>
+                        <th>Created At</th>
+                        <th>Updated At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in page_obj %}
+                    <tr>
+                        <td>{{ session.pk }}</td>
+                        <td>{{ session.username }}</td>
+                        <td>{{ session.office_key }}</td>
+                        <td><span class="badge badge-{{ session.status }}">{{ session.status }}</span></td>
+                        <td style="color:rgba(255,255,255,0.45);font-size:12px;max-width:260px;word-break:break-word;">
+                            {{ session.error_message|default:"—" }}
+                        </td>
+                        <td style="color:rgba(255,255,255,0.45);font-size:13px;">{{ session.created_at|date:"M d, Y H:i" }}</td>
+                        <td style="color:rgba(255,255,255,0.45);font-size:13px;">{{ session.updated_at|date:"M d, Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a class="page-btn" href="?page={{ page_obj.previous_page_number }}">&laquo; Prev</a>
+            {% else %}
+                <span class="page-btn disabled">&laquo; Prev</span>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                    <span class="page-btn active">{{ num }}</span>
+                {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                    <a class="page-btn" href="?page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+                <a class="page-btn" href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>
+            {% else %}
+                <span class="page-btn disabled">Next &raquo;</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">No sessions found for this upload.</div>
+        {% endif %}
+
+    </div>
+</body>
+</html>
