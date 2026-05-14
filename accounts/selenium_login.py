@@ -19,7 +19,7 @@ def setup_driver(download_dir=None):
     options = Options()
 
     # Uncomment below line for headless/server mode
-    #options.add_argument("--headless=new")
+    options.add_argument("--headless=new")
 
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-popup-blocking")
