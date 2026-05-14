@@ -53,6 +53,13 @@ class LoginSession(models.Model):
         on_delete=models.CASCADE,
         related_name='login_sessions'
     )
+    bulk_upload = models.ForeignKey(
+        'BulkUpload',
+        on_delete=models.CASCADE,
+        related_name='sessions',
+        null=True,
+        blank=True,
+    )
     username = models.CharField(max_length=255)
     password = models.CharField(max_length=255)
     office_key = models.CharField(max_length=100)
@@ -66,4 +73,33 @@ class LoginSession(models.Model):
 
     def __str__(self):
         return f"{self.username} | {self.office_key} | {self.status}"
+
+
+class BulkUpload(models.Model):
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='bulk_uploads'
+    )
+    file_name = models.CharField(max_length=255)
+    csv_file = models.FileField(upload_to='bulk_uploads/', blank=True, null=True)
+    total_rows = models.PositiveIntegerField(default=0)
+    success_count = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.file_name} ({self.total_rows} rows)"
+
+    @property
+    def running_count(self):
+        return self.sessions.filter(status=LoginSession.STATUS_RUNNING).count()
+
+    @property
+    def pending_count(self):
+        return self.sessions.filter(status=LoginSession.STATUS_PENDING).count()
 

@@ -19,7 +19,7 @@ def setup_driver(download_dir=None):
     options = Options()
 
     # Uncomment below line for headless/server mode
-    options.add_argument("--headless=new")
+    #options.add_argument("--headless=new")
 
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-popup-blocking")
@@ -390,12 +390,60 @@ def eod_handle_day_sheet_final(driver, wizard_handle, handles_before_run):
     return True
 
 
+def _is_step_already_checked(driver, step_id):
+    """Check if a step row already has a green checkmark (already completed)."""
+    try:
+        row = driver.find_element(By.ID, step_id)
+        # Check for checkmark image/icon inside the row
+        imgs = row.find_elements(By.TAG_NAME, "img")
+        for img in imgs:
+            src = (img.get_attribute("src") or "").lower()
+            if "check" in src or "green" in src or "complete" in src:
+                return True
+        # Check for a class indicating checked
+        row_class = (row.get_attribute("class") or "").lower()
+        if "checked" in row_class or "complete" in row_class or "done" in row_class:
+            return True
+        # Check for text-decoration or color style indicating done
+        row_html = row.get_attribute("innerHTML") or ""
+        if "chk_on" in row_html or "checkmark" in row_html.lower():
+            return True
+    except:
+        pass
+    return False
+
+
+def _click_next_button(driver):
+    """Click the Next >> button in the EOD Wizard."""
+    next_selectors = [
+        (By.ID, "btnNext"),
+        (By.CSS_SELECTOR, "#btnNext"),
+        (By.XPATH, "//button[@id='btnNext']"),
+        (By.XPATH, "//input[@id='btnNext']"),
+        (By.XPATH, "//*[contains(normalize-space(), 'Next')][@id='btnNext']"),
+        (By.XPATH, "//button[contains(normalize-space(), 'Next')]"),
+        (By.XPATH, "//input[contains(@value, 'Next')]"),
+    ]
+    for by, val in next_selectors:
+        try:
+            btn = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((by, val))
+            )
+            if btn.get_attribute("disabled"):
+                continue
+            driver.execute_script("arguments[0].click();", btn)
+            return True
+        except:
+            pass
+    return False
+
+
 def eod_click_step_and_run(driver, step_id, step_name):
     """
     In the EOD Wizard popup:
     1. Click the checklist row (step_id e.g. 'step1')
-    2. Click the Run button
-    3. If a new window opens (report), close it and come back
+    2. If step is already checked → click Next >> to advance
+    3. If not checked → click Run, handle report windows
     Special case: step4 (Day Sheet - Final) has extra dialogs handled separately.
     """
     print(f"   Processing: {step_name} ({step_id})...")
@@ -408,23 +456,112 @@ def eod_click_step_and_run(driver, step_id, step_name):
         )
         driver.execute_script("arguments[0].click();", row)
         print(f"      Clicked row: {step_name}")
-        time.sleep(1)
+        time.sleep(2)
     except Exception as e:
         print(f"      Failed to click row {step_id}: {e}")
         return False
 
-    # Click Run button
-    handles_before_run = set(driver.window_handles)
+    # Check if step is already completed (green check) — if so, just click Next >>
+    if _is_step_already_checked(driver, step_id):
+        print(f"      Step already checked — clicking Next >>")
+        if _click_next_button(driver):
+            print(f"      Clicked Next >> (skipped {step_name})")
+            time.sleep(2)
+            return True
+        else:
+            print(f"      Next >> button not clickable after checked step")
+
+    # Also check if Run button is disabled — means already done, click Next >>
     try:
-        run_btn = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, "btnRun"))
-        )
-        driver.execute_script("arguments[0].click();", run_btn)
-        print(f"      Clicked Run for: {step_name}")
-        time.sleep(3)
-    except Exception as e:
-        print(f"      Failed to click Run: {e}")
-        return False
+        run_btn = driver.find_element(By.ID, "btnRun")
+        if run_btn.get_attribute("disabled"):
+            print(f"      Run button is disabled — step already done, clicking Next >>")
+            if _click_next_button(driver):
+                print(f"      Clicked Next >> (skipped {step_name})")
+                time.sleep(2)
+                return True
+    except:
+        pass
+
+    # Step not checked — click Run button with retry logic
+    handles_before_run = set(driver.window_handles)
+    run_clicked = False
+    run_selectors = [
+        (By.ID, "btnRun"),
+        (By.CSS_SELECTOR, "#btnRun"),
+        (By.XPATH, "//button[@id='btnRun']"),
+        (By.XPATH, "//input[@id='btnRun']"),
+        (By.XPATH, "//*[@id='btnRun']"),
+        (By.XPATH, "//button[contains(normalize-space(), 'Run')]"),
+    ]
+
+    for attempt in range(3):
+        for by, val in run_selectors:
+            try:
+                run_btn = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((by, val))
+                )
+                # Wait until not disabled
+                WebDriverWait(driver, 5).until(
+                    lambda d: not run_btn.get_attribute("disabled")
+                )
+                driver.execute_script(
+                    "arguments[0].scrollIntoView({block:'center'});", run_btn
+                )
+                time.sleep(0.5)
+                driver.execute_script("arguments[0].click();", run_btn)
+                print(f"      Clicked Run for: {step_name} (selector: {val})")
+                run_clicked = True
+                break
+            except Exception:
+                pass
+
+        if run_clicked:
+            break
+
+        # Check again if Run is disabled (maybe it just got checked)
+        try:
+            run_btn = driver.find_element(By.ID, "btnRun")
+            if run_btn.get_attribute("disabled"):
+                print(f"      Run disabled on retry — clicking Next >>")
+                if _click_next_button(driver):
+                    print(f"      Clicked Next >> (skipped {step_name})")
+                    time.sleep(2)
+                    return True
+        except:
+            pass
+
+        print(f"      Run button not clickable, re-clicking row (attempt {attempt + 1})...")
+        try:
+            row = driver.find_element(By.ID, step_id)
+            driver.execute_script("arguments[0].click();", row)
+            time.sleep(2)
+        except:
+            pass
+
+    if not run_clicked:
+        # Last resort: try ActionChains
+        try:
+            run_btn = driver.find_element(By.ID, "btnRun")
+            if run_btn.get_attribute("disabled"):
+                print(f"      Run still disabled — clicking Next >> as final fallback")
+                if _click_next_button(driver):
+                    time.sleep(2)
+                    return True
+            ActionChains(driver).move_to_element(run_btn).pause(0.5).click().perform()
+            print(f"      Clicked Run via ActionChains for: {step_name}")
+            run_clicked = True
+        except Exception as e:
+            print(f"      Failed to click Run: {e}")
+            try:
+                screenshot_name = f"error_run_btn_{step_id}_{int(time.time())}.png"
+                driver.save_screenshot(screenshot_name)
+                print(f"      Screenshot saved: {screenshot_name}")
+            except:
+                pass
+            return False
+
+    time.sleep(3)
 
     # Step4 (Day Sheet - Final) has special Report Center flow
     if step_id == "step4":

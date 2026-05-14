@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Uploads | Wizard Run</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; }
+        .navbar {
+            background: rgba(255,255,255,0.04);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 16px 32px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .navbar .brand { color: #e94560; font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+        .navbar .nav-right { display: flex; align-items: center; gap: 16px; }
+        .navbar .user-email { color: rgba(255,255,255,0.6); font-size: 14px; }
+        .btn-logout {
+            padding: 8px 18px; background: transparent; border: 1px solid #e94560;
+            color: #e94560; border-radius: 6px; font-size: 14px; cursor: pointer;
+            text-decoration: none; transition: background 0.2s, color 0.2s;
+        }
+        .btn-logout:hover { background: #e94560; color: #fff; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 36px 32px; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 0; margin-bottom: 32px; }
+        .tab-link {
+            padding: 12px 28px; font-size: 14px; font-weight: 600; text-decoration: none;
+            border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.02); transition: all 0.2s;
+        }
+        .tab-link:first-child { border-radius: 8px 0 0 8px; }
+        .tab-link:last-child { border-radius: 0 8px 8px 0; }
+        .tab-link.active { background: #e94560; border-color: #e94560; color: #fff; }
+        .tab-link:hover:not(.active) { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
+
+        /* Upload card */
+        .upload-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 14px; padding: 28px 32px; margin-bottom: 32px;
+        }
+        .upload-card h2 { font-size: 18px; color: #e94560; margin-bottom: 20px; letter-spacing: 0.5px; }
+        .upload-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .file-input-wrap input[type="file"] {
+            padding: 10px 14px; background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.14); border-radius: 8px;
+            color: #fff; font-size: 13px; cursor: pointer;
+        }
+        .file-input-wrap input[type="file"]::file-selector-button {
+            padding: 7px 16px; background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 5px;
+            color: #fff; font-size: 12px; cursor: pointer; margin-right: 10px;
+        }
+        .btn-upload {
+            padding: 10px 24px; background: #1a73e8; color: #fff;
+            border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+            cursor: pointer; white-space: nowrap; transition: background 0.2s;
+        }
+        .btn-upload:hover { background: #1558b0; }
+        .upload-hint { color: rgba(255,255,255,0.3); font-size: 12px; }
+
+        /* Messages */
+        .msg-box {
+            border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
+            font-size: 13px; display: flex; align-items: center; gap: 8px;
+        }
+        .msg-success { background: rgba(25,135,84,0.15); border: 1px solid rgba(40,199,122,0.3); color: #28c77a; }
+        .msg-error   { background: rgba(233,69,96,0.1);  border: 1px solid rgba(233,69,96,0.3);  color: #e94560; }
+        .msg-warning  { background: rgba(255,193,7,0.12); border: 1px solid rgba(255,193,7,0.3);  color: #ffc107; }
+
+        /* Table */
+        .section-title { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.8); margin-bottom: 18px; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        thead tr { border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { padding: 12px 16px; color: rgba(255,255,255,0.4); font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; text-align: left; }
+        td { padding: 13px 16px; color: rgba(255,255,255,0.85); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+        tbody tr { cursor: pointer; transition: background 0.15s; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-success { background: rgba(25,135,84,0.2); color: #28c77a; }
+        .badge-failed  { background: rgba(233,69,96,0.15); color: #e94560; }
+        .badge-running { background: rgba(13,202,240,0.15); color: #0dcaf0; }
+        .badge-skipped { background: rgba(255,193,7,0.15); color: #ffc107; }
+        .stat-num { font-weight: 600; }
+        .btn-view {
+            padding: 5px 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 5px; color: rgba(255,255,255,0.7); font-size: 12px; text-decoration: none;
+            transition: all 0.15s;
+        }
+        .btn-view:hover { background: rgba(255,255,255,0.14); color: #fff; }
+        .empty-state { text-align: center; padding: 48px 0; color: rgba(255,255,255,0.25); font-size: 15px; }
+        .pagination { display: flex; gap: 6px; justify-content: center; margin-top: 28px; flex-wrap: wrap; }
+        .page-btn {
+            padding: 7px 13px; border-radius: 6px; font-size: 13px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7); text-decoration: none; transition: background 0.15s;
+        }
+        .page-btn:hover { background: rgba(255,255,255,0.12); }
+        .page-btn.active { background: #e94560; border-color: #e94560; color: #fff; font-weight: 600; }
+        .page-btn.disabled { opacity: 0.35; pointer-events: none; }
+        @media (max-width: 700px) { .upload-row { flex-direction: column; align-items: stretch; } .container { padding: 24px 16px; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <span class="brand">Wizard Run</span>
+        <div class="nav-right">
+            <span class="user-email">{{ user.email }}</span>
+            <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <div class="tabs">
+            <a href="{% url 'dashboard' %}" class="tab-link">Dashboard</a>
+            <a href="{% url 'bulk_upload_list' %}" class="tab-link active">Bulk Uploads</a>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="msg-box msg-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="upload-card">
+            <h2>Upload CSV File</h2>
+            <form method="post" action="{% url 'bulk_upload' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="upload-row">
+                    <div class="file-input-wrap">
+                        <input type="file" name="csv_file" accept=".csv" required>
+                    </div>
+                    <button type="submit" class="btn-upload">Upload &amp; Run All</button>
+                    <span class="upload-hint">CSV columns: username, password, office_key (any encoding)</span>
+                    <a href="{% url 'sample_csv' %}" style="color:#1a73e8;font-size:13px;text-decoration:none;border-bottom:1px dashed #1a73e8;">Download Sample CSV</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="section-title">Upload History</div>
+
+        {% if page_obj.object_list %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>File Name</th>
+                        <th>Total Rows</th>
+                        <th>Success</th>
+                        <th>Failed</th>
+                        <th>Skipped</th>
+                        <th>Uploaded At</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for upload in page_obj %}
+                    <tr onclick="window.location='{% url 'bulk_upload_detail' pk=upload.pk %}'">
+                        <td>{{ upload.pk }}</td>
+                        <td>{{ upload.file_name }}</td>
+                        <td class="stat-num">{{ upload.total_rows }}</td>
+                        <td><span class="stat-num" style="color:#28c77a;">{{ upload.success_count }}</span></td>
+                        <td><span class="stat-num" style="color:#e94560;">{{ upload.failed_count }}</span></td>
+                        <td><span class="stat-num" style="color:#ffc107;">{{ upload.skipped_count }}</span></td>
+                        <td style="color:rgba(255,255,255,0.45);font-size:13px;">{{ upload.created_at|date:"M d, Y H:i" }}</td>
+                        <td style="display:flex;gap:6px;">
+                            <a href="{% url 'bulk_upload_detail' pk=upload.pk %}" class="btn-view">View</a>
+                            {% if upload.csv_file %}<a href="{% url 'download_upload' pk=upload.pk %}" class="btn-view" title="Download original CSV">&#8595; CSV</a>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a class="page-btn" href="?page={{ page_obj.previous_page_number }}">&laquo; Prev</a>
+            {% else %}
+                <span class="page-btn disabled">&laquo; Prev</span>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                    <span class="page-btn active">{{ num }}</span>
+                {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                    <a class="page-btn" href="?page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+                <a class="page-btn" href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>
+            {% else %}
+                <span class="page-btn disabled">Next &raquo;</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">No uploads yet. Upload a CSV file above to get started.</div>
+        {% endif %}
+
+    </div>
+</body>
+</html>
