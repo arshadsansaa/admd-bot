@@ -16,9 +16,14 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from accounts.api_views import ActivityLogAPI, ActivityStatsAPI
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('accounts.urls')),
+
+    # --- PUBLIC API ENDPOINTS ---
+    path('api/wizard_run_bot_activity/', ActivityLogAPI.as_view(), name='api_activity_log'),
+    path('api/wizard_run_bot_activity/stats/', ActivityStatsAPI.as_view(), name='api_activity_stats'),
 ]
 
