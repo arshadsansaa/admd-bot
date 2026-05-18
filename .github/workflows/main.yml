@@ -1,1 +1,77 @@
+name: wizard-run-agent-bot CI/CD Pipeline
 
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: wizard-run-agent-bot
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build Docker Image
+        run: |
+          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+
+      - name: Tag Docker Image
+        run: |
+          docker tag $IMAGE_NAME:$IMAGE_TAG ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:$IMAGE_TAG
+          docker tag $IMAGE_NAME:$IMAGE_TAG ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:latest
+
+      - name: Push Docker Image to ECR
+        run: |
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:$IMAGE_TAG
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/$IMAGE_NAME:latest
+
+  Deploy:
+    needs: Build 
+    runs-on: ubuntu-latest          
+
+    steps:
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ vars.EC2_HOST }} << 'EOF'
+            set -euo pipefail
+            git config --global --add safe.directory /home/ubuntu/wizard-run-agent-bot
+            cd /home/ubuntu/wizard-run-agent-bot
+
+            git checkout main
+            GIT_TOKEN="${{ secrets.GH_PAT }}"
+            GIT_URL="https://$GIT_TOKEN@github.com/softleoai-opc-pvt-ltd-git/wizard-run-agent-bot.git"
+
+            ## Set remote for this session only
+            git remote set-url origin "$GIT_URL"
+
+            # Pull latest changes
+            git pull origin main
+
+            sudo docker compose pull
+            sudo docker compose up -d
+            sudo docker image prune -f
+
+            git remote set-url origin https://github.com/softleoai-opc-pvt-ltd-git/wizard-run-agent-bot.git
+          EOF

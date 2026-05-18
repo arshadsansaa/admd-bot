@@ -27,9 +27,8 @@ services:
       - shared-net
 
   web:
-    build: .
-    # image: 174249281329.dkr.ecr.ap-south-1.amazonaws.com/admd-memberid:latest
-    # pull_policy: always
+    image: 174249281329.dkr.ecr.ap-south-1.amazonaws.com/wizard-run-agent-bot:latest
+    pull_policy: always
     restart: always
     env_file:
       - .env
@@ -50,9 +49,8 @@ services:
     - shared-net
 
   celery-worker:
-    build: .
-    # image: 174249281329.dkr.ecr.ap-south-1.amazonaws.com/admd-memberid:latest
-    # pull_policy: always
+    image: 174249281329.dkr.ecr.ap-south-1.amazonaws.com/wizard-run-agent-bot:latest
+    pull_policy: always
     restart: always
     env_file:
       - .env
@@ -71,7 +69,6 @@ volumes:
   wizardbot_media:
   wizardbot_static:
   pgdata:
-
 
 networks:
   shared-net:
