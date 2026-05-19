@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, LoginSession, BulkUpload, BotCredential, ScheduledRun
+from .models import CustomUser, LoginSession, BulkUpload, BotCredential
 
 
 @admin.register(CustomUser)
@@ -12,12 +12,6 @@ class CustomUserAdmin(admin.ModelAdmin):
 class BotCredentialAdmin(admin.ModelAdmin):
     list_display = ('username', 'office_key', 'created_by', 'created_at')
     search_fields = ('username', 'office_key')
-
-
-@admin.register(ScheduledRun)
-class ScheduledRunAdmin(admin.ModelAdmin):
-    list_display = ('id', 'credential', 'scheduled_at', 'status', 'created_by', 'created_at')
-    list_filter = ('status',)
 
 
 @admin.register(LoginSession)
