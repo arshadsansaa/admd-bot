@@ -9,8 +9,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
-from .forms import SignInForm, AdvancedMDCredentialForm
-from .models import LoginSession, BulkUpload
+from .forms import SignInForm, BotCredentialForm
+from .models import LoginSession, BulkUpload, BotCredential
 
 
 def signin_view(request):
@@ -28,44 +28,73 @@ def signin_view(request):
 
 @login_required
 def dashboard_view(request):
-    cred_form = AdvancedMDCredentialForm()
+    bot_cred_form = BotCredentialForm()
+
     sessions_qs = LoginSession.objects.filter(created_by=request.user)
     paginator = Paginator(sessions_qs, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    credentials = BotCredential.objects.filter(created_by=request.user)
+
+    # Pretty label for the configured BOT_RUN_SCHEDULE (set in wizard_run/celery.py)
+    bot_schedule_label = 'the configured time'
+    try:
+        from wizard_run.celery import BOT_RUN_SCHEDULE
+        hours = sorted(BOT_RUN_SCHEDULE.hour) if BOT_RUN_SCHEDULE.hour else []
+        minutes = sorted(BOT_RUN_SCHEDULE.minute) if BOT_RUN_SCHEDULE.minute else []
+        if len(hours) == 1 and len(minutes) == 1:
+            h, m = hours[0], minutes[0]
+            suffix = 'AM' if h < 12 else 'PM'
+            h12 = h % 12 or 12
+            bot_schedule_label = f'{h12}:{m:02d} {suffix}'
+    except Exception:
+        pass
+
     return render(request, 'accounts/dashboard.html', {
         'user': request.user,
-        'cred_form': cred_form,
+        'bot_cred_form': bot_cred_form,
+        'credentials': credentials,
         'page_obj': page_obj,
+        'bot_schedule_label': bot_schedule_label,
     })
 
 
 @login_required
 @require_POST
-def run_login_view(request):
-    form = AdvancedMDCredentialForm(request.POST)
-    if not form.is_valid():
-        sessions_qs = LoginSession.objects.filter(created_by=request.user)
-        paginator = Paginator(sessions_qs, 10)
-        page_obj = paginator.get_page(request.GET.get('page'))
-        return render(request, 'accounts/dashboard.html', {
-            'user': request.user,
-            'cred_form': form,
-            'page_obj': page_obj,
-        })
+def add_credential_view(request):
+    form = BotCredentialForm(request.POST)
+    if form.is_valid():
+        cred = form.save(commit=False)
+        cred.created_by = request.user
+        try:
+            cred.save()
+            messages.success(request, f'Credential "{cred.username}" saved.')
+        except Exception as e:
+            messages.error(request, f'Could not save credential: {e}')
+    else:
+        messages.error(request, 'Please fill all credential fields correctly.')
+    return redirect('dashboard')
 
-    session = LoginSession.objects.create(
-        created_by=request.user,
-        username=form.cleaned_data['username'],
-        password=form.cleaned_data['password'],
-        office_key=form.cleaned_data['office_key'],
-        status=LoginSession.STATUS_RUNNING,
-    )
 
-    from .selenium_tasks import task_run_eod_wizard
-    task_run_eod_wizard.delay(session.pk)
+@login_required
+@require_POST
+def delete_credential_view(request, pk):
+    cred = get_object_or_404(BotCredential, pk=pk, created_by=request.user)
+    name = cred.username
+    cred.delete()
+    messages.success(request, f'Credential "{name}" deleted.')
+    return redirect('dashboard')
 
+
+@login_required
+@require_POST
+def toggle_credential_view(request, pk):
+    cred = get_object_or_404(BotCredential, pk=pk, created_by=request.user)
+    cred.is_active = not cred.is_active
+    cred.save(update_fields=['is_active'])
+    state = 'enabled' if cred.is_active else 'disabled'
+    messages.success(request, f'"{cred.username}" {state} for auto-run.')
     return redirect('dashboard')
 
 
@@ -222,5 +251,39 @@ def sample_csv_view(request):
 def logout_view(request):
     logout(request)
     return redirect('signin')
+
+
+@login_required
+@require_POST
+def cancel_session_view(request, pk):
+    """Mark a PENDING/RUNNING LoginSession as FAILED ('Cancelled by user').
+    Note: this does not kill an already-running Selenium browser; it only stops
+    new pickup and marks the session for the UI."""
+    session = get_object_or_404(LoginSession, pk=pk, created_by=request.user)
+    if session.status in (LoginSession.STATUS_PENDING, LoginSession.STATUS_RUNNING):
+        session.status = LoginSession.STATUS_FAILED
+        session.error_message = 'Cancelled by user.'
+        session.save(update_fields=['status', 'error_message', 'updated_at'])
+        messages.success(request, f'Session #{session.pk} cancelled.')
+    else:
+        messages.warning(request, 'Only pending/running sessions can be cancelled.')
+    return redirect('dashboard')
+
+
+@login_required
+def download_sessions_view(request):
+    """Download all login sessions of the current user as CSV."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="login_sessions.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['id', 'username', 'office_key', 'status', 'error_message', 'created_at', 'updated_at'])
+    for s in LoginSession.objects.filter(created_by=request.user):
+        writer.writerow([
+            s.pk, s.username, s.office_key, s.status,
+            s.error_message,
+            s.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            s.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+        ])
+    return response
 
 
