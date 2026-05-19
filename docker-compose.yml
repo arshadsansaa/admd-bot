@@ -63,6 +63,22 @@ services:
       - web
     networks:
       - shared-net
+    
+  celery-beat:
+    image: 174249281329.dkr.ecr.ap-south-1.amazonaws.com/wizard-run-agent-bot:latest
+    pull_policy: always
+    restart: always
+    env_file:
+      - .env
+    command: celery -A wizard_run beat --loglevel=info
+    volumes:
+      - .:/app
+      - wizardbot_media:/app/media
+    depends_on:
+      - db
+      - web
+    networks:
+      - shared-net
 
 volumes:
   redis_data:
