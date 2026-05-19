@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth import authenticate
+from .models import BotCredential
 
 
 class SignInForm(forms.Form):
@@ -27,16 +28,13 @@ class SignInForm(forms.Form):
         return self.user
 
 
-class AdvancedMDCredentialForm(forms.Form):
-    username = forms.CharField(
-        max_length=255,
-        widget=forms.TextInput(attrs={'placeholder': 'AdvancedMD Username', 'class': 'form-control'})
-    )
-    password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'placeholder': 'AdvancedMD Password', 'class': 'form-control'})
-    )
-    office_key = forms.CharField(
-        max_length=100,
-        widget=forms.TextInput(attrs={'placeholder': 'Office Key', 'class': 'form-control'})
-    )
+class BotCredentialForm(forms.ModelForm):
+    class Meta:
+        model = BotCredential
+        fields = ['username', 'password', 'office_key']
+        widgets = {
+            'username': forms.TextInput(attrs={'placeholder': 'AdvancedMD Username', 'class': 'form-control'}),
+            'password': forms.TextInput(attrs={'placeholder': 'AdvancedMD Password', 'class': 'form-control'}),
+            'office_key': forms.TextInput(attrs={'placeholder': 'Office Key', 'class': 'form-control'}),
+        }
 

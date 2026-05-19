@@ -103,3 +103,67 @@ class BulkUpload(models.Model):
     def pending_count(self):
         return self.sessions.filter(status=LoginSession.STATUS_PENDING).count()
 
+
+class BotCredential(models.Model):
+    """Stored AdvancedMD credential — user can save multiple and pick one when scheduling."""
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='bot_credentials',
+    )
+    username = models.CharField(max_length=255)
+    password = models.CharField(max_length=255)
+    office_key = models.CharField(max_length=100)
+    is_active = models.BooleanField(
+        default=True,
+        help_text='If checked, this credential will be picked by the scheduled bot run.'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['username']
+        unique_together = ('created_by', 'username', 'office_key')
+
+    def __str__(self):
+        return f"{self.username} / {self.office_key}"
+
+
+class ScheduledRun(models.Model):
+    """A bot run scheduled to fire at a specific datetime using one saved credential."""
+    STATUS_PENDING = 'PENDING'
+    STATUS_TRIGGERED = 'TRIGGERED'
+    STATUS_CANCELLED = 'CANCELLED'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_TRIGGERED, 'Triggered'),
+        (STATUS_CANCELLED, 'Cancelled'),
+    ]
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='scheduled_runs',
+    )
+    credential = models.ForeignKey(
+        BotCredential,
+        on_delete=models.CASCADE,
+        related_name='scheduled_runs',
+    )
+    scheduled_at = models.DateTimeField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    login_session = models.ForeignKey(
+        LoginSession,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='scheduled_runs',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-scheduled_at']
+
+    def __str__(self):
+        return f"{self.credential.username} @ {self.scheduled_at:%Y-%m-%d %H:%M} [{self.status}]"
+

@@ -74,3 +74,62 @@ def task_run_eod_wizard(self, login_session_id):
                 driver.quit()
             except:
                 pass
+
+
+@shared_task
+def task_process_scheduled_runs():
+    """
+    Periodic task — runs every minute via Celery Beat.
+    Finds any ScheduledRun that is PENDING and due (scheduled_at <= now),
+    creates a LoginSession for it, queues task_run_eod_wizard, and marks it TRIGGERED.
+    """
+    from django.utils import timezone
+    from accounts.models import ScheduledRun, LoginSession
+
+    now = timezone.now()
+    due = ScheduledRun.objects.select_related('credential', 'created_by').filter(
+        status=ScheduledRun.STATUS_PENDING,
+        scheduled_at__lte=now,
+    )
+
+    triggered_ids = []
+    for sched in due:
+        cred = sched.credential
+        session = LoginSession.objects.create(
+            created_by=sched.created_by,
+            username=cred.username,
+            password=cred.password,
+            office_key=cred.office_key,
+            status=LoginSession.STATUS_RUNNING,
+        )
+        sched.status = ScheduledRun.STATUS_TRIGGERED
+        sched.login_session = session
+        sched.save(update_fields=['status', 'login_session', 'updated_at'])
+        task_run_eod_wizard.delay(session.pk)
+        triggered_ids.append(sched.pk)
+
+    return {'triggered': triggered_ids, 'count': len(triggered_ids)}
+
+
+@shared_task
+def task_run_all_credentials():
+    """
+    Periodic task — fires once at the time configured in wizard_run/celery.py
+    (BOT_RUN_SCHEDULE). Picks up EVERY saved BotCredential and queues a bot run
+    for it.
+    """
+    from accounts.models import BotCredential, LoginSession
+
+    queued = []
+    for cred in BotCredential.objects.filter(is_active=True).select_related('created_by'):
+        session = LoginSession.objects.create(
+            created_by=cred.created_by,
+            username=cred.username,
+            password=cred.password,
+            office_key=cred.office_key,
+            status=LoginSession.STATUS_RUNNING,
+        )
+        task_run_eod_wizard.delay(session.pk)
+        queued.append(session.pk)
+
+    return {'queued_sessions': queued, 'count': len(queued)}
