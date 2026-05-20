@@ -22,7 +22,7 @@ app.autodiscover_tasks(related_name='selenium_tasks')
 #     crontab(hour=23, minute=30)   -> daily at 11:30 PM IST
 #     crontab(minute='*/5')         -> every 5 minutes (testing)
 # =============================================================================
-BOT_RUN_SCHEDULE = crontab(hour=5, minute=0)   # <-- EDIT THIS LINE
+BOT_RUN_SCHEDULE = crontab(hour=4, minute=0)   # <-- EDIT THIS LINE
 
 app.conf.beat_schedule = {
     'run-all-saved-credentials': {
