@@ -61,7 +61,7 @@ jobs:
 
             git checkout main
             GIT_TOKEN="${{ secrets.GH_PAT }}"
-            GIT_URL="https://$GIT_TOKEN@github.com/Sansaa-AI/wizard-run-agent-bot.git"
+            GIT_URL="https://$GIT_TOKEN@github.com/Vanaa-Tech-LLC/wizard-run-agent-bot.git"
 
             ## Set remote for this session only
             git remote set-url origin "$GIT_URL"
@@ -73,5 +73,5 @@ jobs:
             sudo docker compose up -d
             sudo docker image prune -f
 
-            git remote set-url origin https://github.com/Sansaa-AI/wizard-run-agent-bot.git
+            git remote set-url origin https://github.com/Vanaa-Tech-LLC/wizard-run-agent-bot.git
           EOF
