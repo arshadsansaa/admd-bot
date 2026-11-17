@@ -5,3 +5,8 @@ db.sqlite3
 venv/
 media/
 celerybeat-schedule*
+
+# PHI / local-only (chart downloader)
+downloads/
+logs/
+html_samples/
